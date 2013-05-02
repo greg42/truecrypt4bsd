@@ -32,6 +32,11 @@ int hash_init(hash_ctx* h, uint hashtype) {
             h->outsize = 64;
             my_sha512_init(h);
             break;
+        case HASH_WHIRLPOOL:
+            h->blocksize = 64;
+            h->outsize = 64;
+            whirlpool_init(h);
+            break;
         default:
             return 2;
     }
@@ -51,6 +56,9 @@ int hash_add(hash_ctx* h, uchar* msg, uint msglen) {
         case HASH_SHA512:
             my_sha512_add(h, msg, msglen);
             break;
+        case HASH_WHIRLPOOL:
+            whirlpool_add(h, msg, msglen * 8);
+            break;
         default:
             return 2;
     }
@@ -69,6 +77,9 @@ int hash_final(hash_ctx* h, uchar* out) {
             break;
         case HASH_SHA512:
             my_sha512_final(h, out);
+            break;
+        case HASH_WHIRLPOOL:
+            whirlpool_final(h, out);
             break;
         default:
             return 2;

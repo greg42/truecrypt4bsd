@@ -10,8 +10,4 @@ typedef uint16_t u_int16_t;
 typedef uint32_t u_int32_t;
 typedef unsigned char u_char;
 
-typedef u_int8_t		u8;
-typedef u_int16_t		u16;
-typedef u_int32_t		u32;
-
 #endif

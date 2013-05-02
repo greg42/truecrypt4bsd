@@ -74,6 +74,12 @@ int cipher_init(uint cipher, uint mode, uint padding, cipherContext* ctx) {
                 ctx->padding = padding;
                 ctx->blockSize = 16;
                 break;
+            case CIPHER_SERPENT:
+                ctx->cipher = cipher;
+                ctx->mode = mode;
+                ctx->padding = padding;
+                ctx->blockSize = 16;
+                break;
             default:
                 return 2;
         }
@@ -103,10 +109,14 @@ int cipher_set_key(cipherContext* ctx, uchar* key, uint keylen) {
         switch(ctx->cipher) {
             case CIPHER_NONE:
                 break;
+            case CIPHER_SERPENT:
+                if (keylen > 32 || keylen < 16 || keylen % 8 != 0)
+                    return 2;
+                serpent_set_key(&(ik->serpent_key), key, keylen * 8);
+                break;
             case CIPHER_TWOFISH:
                 if (keylen > 32 || keylen < 16 || keylen % 8 != 0)
                     return 2;
-                /* Copy the actual key */
                 twofish_setkey(&(ik->twofish_key), key, keylen);
                 break;
             case CIPHER_AES:
@@ -158,11 +168,16 @@ static void enc_dec_callback(cipherContext* ctx, uchar* msg, uint msg_len,
                                       msg, msg_len * 8, dst);
             return;
         case CIPHER_TWOFISH:
-            memcpy(dst, msg, msg_len);
             if (dir == 0) /* encrypt */
-                twofish_encrypt(&(ik->twofish_key), dst, dst);
+                twofish_encrypt(&(ik->twofish_key), msg, dst);
             if (dir == 1)
-                twofish_decrypt(&(ik->twofish_key), dst, dst);
+                twofish_decrypt(&(ik->twofish_key), msg, dst);
+            return;
+        case CIPHER_SERPENT:
+            if (dir == 0) /* encrypt */
+                serpent_encrypt(&(ik->serpent_key), msg, dst);
+            if (dir == 1)
+                serpent_decrypt(&(ik->serpent_key), msg, dst);
             return;
     }
 }

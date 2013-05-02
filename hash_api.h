@@ -22,4 +22,9 @@ uint8_t my_sha512_init(hash_ctx* h);
 uint8_t my_sha512_add(hash_ctx* h, uchar* msg, uint msglen);
 uint8_t my_sha512_final(hash_ctx* h, uchar* out);
 
+void whirlpool_init(hash_ctx*);
+void whirlpool_add(hash_ctx* ctx, const unsigned char * const source, 
+                   unsigned long sourceBits);
+void whirlpool_final(hash_ctx* ctx, unsigned char * const result);
+
 #endif

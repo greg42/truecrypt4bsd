@@ -35,6 +35,9 @@ typedef uint16_t ushort;   /* sizeof(ushort) == 2 */
 typedef uint32_t dword;    /* sizeof(dword)  == 4 */
 #endif
 typedef uint64_t qword;
+typedef uint8_t u8;
+typedef uint16_t u16;
+typedef uint32_t u32;
 
 #define null NULL
 #define arrlen(X) (sizeof(X)/sizeof(X[0]))

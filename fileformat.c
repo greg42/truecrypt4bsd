@@ -82,9 +82,9 @@ int tc_cipherSetup(uchar* pass, uint plen, uchar* header, uint hdr_len,
                    cipherContext* cc2, cipherContext* cc3, qword* start,
                    qword* len) {
 
+    uint ciphers[] = {CIPHER_NONE, CIPHER_AES, CIPHER_TWOFISH, CIPHER_SERPENT};
     /* TODO: Implement the missing algorithms */
-    uint ciphers[3] = {CIPHER_NONE, CIPHER_AES, CIPHER_TWOFISH};
-    uint hashes[2] = {HASH_RIPEMD_160, HASH_SHA512};
+    uint hashes[] = {HASH_RIPEMD_160, HASH_SHA512, HASH_WHIRLPOOL};
 
     uint cipher1, cipher2, cipher3;
     uint hash;
@@ -136,13 +136,13 @@ int tc_cipherSetup(uchar* pass, uint plen, uchar* header, uint hdr_len,
     cipher_init(cipher3, MODE_XTS, PADDING_NONE, cc3);
 
     keys = buf + FF_KEY_OFFSET - FF_SALT_LEN;
-    /* TODO: The spec is not clear about the order of the keys if a cipher
-     *       cascade is used. One might need to fix that. */
     /* Set up the keys */
-    memcpy(key1, keys, KEYLEN);
-    memcpy(key1+KEYLEN, keys + ciphersUsed*KEYLEN, KEYLEN);
-    cipher_set_key(cc1, key1, 2*KEYLEN);
-    if (cipher2 != CIPHER_NONE && cipher3 == CIPHER_NONE) {
+    if (ciphersUsed == 1) {
+        memcpy(key1, keys, KEYLEN);
+        memcpy(key1+KEYLEN, keys + ciphersUsed*KEYLEN, KEYLEN);
+        cipher_set_key(cc1, key1, 2*KEYLEN);
+    }
+    else if (ciphersUsed == 2) {
         memcpy(key2, keys, KEYLEN);
         memcpy(key2+KEYLEN, keys + ciphersUsed*KEYLEN, KEYLEN);
 
@@ -152,16 +152,22 @@ int tc_cipherSetup(uchar* pass, uint plen, uchar* header, uint hdr_len,
         cipher_set_key(cc1, key1, 2*KEYLEN);
         cipher_set_key(cc2, key2, 2*KEYLEN);
     }
-    else if (cipher2 != CIPHER_NONE) {
+    else if (ciphersUsed == 3) {
+        memcpy(key3, keys, KEYLEN);
+        memcpy(key3+KEYLEN, keys + ciphersUsed*KEYLEN, KEYLEN);
+
         memcpy(key2, keys+KEYLEN, KEYLEN);
         memcpy(key2+KEYLEN, keys + ciphersUsed*KEYLEN + KEYLEN, KEYLEN);
+
+        memcpy(key1, keys+2*KEYLEN, KEYLEN);
+        memcpy(key1+KEYLEN, keys + ciphersUsed*KEYLEN + 2*KEYLEN, KEYLEN);
+
+        cipher_set_key(cc1, key1, 2*KEYLEN);
         cipher_set_key(cc2, key2, 2*KEYLEN);
-    }
-    if (cipher3 != CIPHER_NONE) {
-        memcpy(key3, keys+2*KEYLEN, KEYLEN);
-        memcpy(key3+2*KEYLEN, keys + ciphersUsed*KEYLEN + 2*KEYLEN, KEYLEN);
         cipher_set_key(cc3, key3, 2*KEYLEN);
     }
+    else
+        return 2;
 
     *start = betoh64( *((qword*)(buf + FF_DATA_START - FF_SALT_LEN )) );
     *len   = betoh64( *((qword*)(buf + FF_DATA_LEN - FF_SALT_LEN )) );
@@ -221,42 +227,51 @@ int decrypt_hdr_try(uchar* pass, uint plen, uchar* salt, uint slen,
     /* Get the key */
     pbkdf2(h, pass, plen, salt, slen, c, dklen, dk);
     /* Split up the derived key */
-    memcpy(key1, dk, KEYLEN);
-    memcpy(key1+KEYLEN, dk + ciphersUsed*KEYLEN, KEYLEN);
-    if (cipher2 != CIPHER_NONE) {
-        /* This is weird. If only two ciphers are used, the keys are in
-         * different order..
-         * */
-        if (cipher3 == CIPHER_NONE) {
-            memcpy(key2, dk, KEYLEN);
-            memcpy(key2+KEYLEN, dk + ciphersUsed*KEYLEN, KEYLEN);
-            memcpy(key1, dk+KEYLEN, KEYLEN);
-            memcpy(key1+KEYLEN, dk + ciphersUsed*KEYLEN + KEYLEN, KEYLEN);
-        } else {
-            memcpy(key2, dk+KEYLEN, KEYLEN);
-            memcpy(key2+KEYLEN, dk + ciphersUsed*KEYLEN + KEYLEN, KEYLEN);
-        }
+    if (ciphersUsed == 1) {
+        memcpy(key1, dk, KEYLEN);
+        memcpy(key1+KEYLEN, dk + ciphersUsed*KEYLEN, KEYLEN);
+        cipher_init(cipher1, MODE_XTS, PADDING_NONE, &cctx1);
+        cctx1.mode_extra = &lba;
+        cipher_set_key(&cctx1, key1, 2*KEYLEN);
     }
-    if (cipher3 != CIPHER_NONE) {
-        memcpy(key3, dk+2*KEYLEN, KEYLEN);
-        memcpy(key3+2*KEYLEN, dk + ciphersUsed*KEYLEN + 2*KEYLEN, KEYLEN);
-    }
-    free(dk);
-    
-    /* Try to decrypt the header */
-    cipher_init(cipher1, MODE_XTS, PADDING_NONE, &cctx1);
-    cctx1.mode_extra = &lba;
-    cipher_set_key(&cctx1, key1, 2*KEYLEN);
-    if (cipher2 != CIPHER_NONE) {
+    else if (ciphersUsed == 2) {
+        memcpy(key2, dk, KEYLEN);
+        memcpy(key2+KEYLEN, dk + ciphersUsed*KEYLEN, KEYLEN);
+
+        memcpy(key1, dk+KEYLEN, KEYLEN);
+        memcpy(key1+KEYLEN, dk + ciphersUsed*KEYLEN + KEYLEN, KEYLEN);
+
+        cipher_init(cipher1, MODE_XTS, PADDING_NONE, &cctx1);
+        cctx1.mode_extra = &lba;
+        cipher_set_key(&cctx1, key1, 2*KEYLEN);
+
         cipher_init(cipher2, MODE_XTS, PADDING_NONE, &cctx2);
         cctx2.mode_extra = &lba;
         cipher_set_key(&cctx2, key2, 2*KEYLEN);
-    }
-    if (cipher3 != CIPHER_NONE) {
+
+    } else {
+        memcpy(key3, dk, KEYLEN);
+        memcpy(key3+KEYLEN, dk + ciphersUsed*KEYLEN, KEYLEN);
+
+        memcpy(key2, dk+KEYLEN, KEYLEN);
+        memcpy(key2+KEYLEN, dk + ciphersUsed*KEYLEN + KEYLEN, KEYLEN);
+
+        memcpy(key1, dk+2*KEYLEN, KEYLEN);
+        memcpy(key1+KEYLEN, dk + ciphersUsed*KEYLEN + 2*KEYLEN, KEYLEN);
+
+        cipher_init(cipher1, MODE_XTS, PADDING_NONE, &cctx1);
+        cctx1.mode_extra = &lba;
+        cipher_set_key(&cctx1, key1, 2*KEYLEN);
+
+        cipher_init(cipher2, MODE_XTS, PADDING_NONE, &cctx2);
+        cctx2.mode_extra = &lba;
+        cipher_set_key(&cctx2, key2, 2*KEYLEN);
+
         cipher_init(cipher3, MODE_XTS, PADDING_NONE, &cctx3);
         cctx3.mode_extra = &lba;
         cipher_set_key(&cctx3, key3, 2*KEYLEN);
     }
+    free(dk);
     
     /* TODO: Actually, one wants ask how many bytes this is going to
      *       need by calling cipher_decrypted_len? */ 

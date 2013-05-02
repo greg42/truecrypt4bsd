@@ -12,12 +12,14 @@
 #include "common.h"
 #include "twofish.h"
 #include "rijndael-api-fst.h"
+#include "serpent.h"
 
 #define AES_BLOCK_SIZE 16
 
 #define CIPHER_NONE 0
 #define CIPHER_TWOFISH 1
 #define CIPHER_AES 2
+#define CIPHER_SERPENT 3
 
 #define MODE_ECB 0
 #define MODE_XTS 1
@@ -26,6 +28,7 @@
                         * block size*/
 
 typedef union internalKey {
+    serpent_ctx serpent_key;
     tf_key twofish_key;
     struct aes_keys {
         rijndaelKeyInstance enc_key;
