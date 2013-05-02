@@ -18,10 +18,9 @@ coder and I'm not going to claim that it's secure either. Still, it can serve as
 a PoC of how a FreeBSD TrueCrypt could look like.
 
 The code still has some issues. First of all, neither Serpent nor Whirlpool are
-supported. Also, cipher cascades are currently not working. Furthermore, only
-simple encrypted volumes are supported. No fancy hidden volumes or full system
-encryption. And of course there are probably quite some bugs / missing features
-I just don't know about.
+supported. Also, only simple encrypted volumes are supported. No fancy hidden volumes 
+or full system encryption. And of course there are probably quite some bugs / missing 
+features I just don't know about.
 
 _WARNING_: This may or may not work! I'm not making *any* security claims here.
 Really, please consider this code just as a PoC!
