@@ -17,10 +17,9 @@ implementation that works for me. It should probably re-written by a better
 coder and I'm not going to claim that it's secure either. Still, it can serve as
 a PoC of how a FreeBSD TrueCrypt could look like.
 
-The code still has some issues. It is not possible to use key files.  Only
-simple encrypted volumes are supported. No fancy hidden volumes or full system
-encryption. And of course there are probably quite some bugs / missing features
-I just don't know about.
+The code still has some issues. Only simple encrypted volumes are supported. No 
+fancy hidden volumes or full system encryption. And of course there are probably 
+quite some bugs / missing features I just don't know about.
 
 _WARNING_: This may or may not work! I'm not making *any* security claims here.
 Really, please consider this code just as a PoC!
