@@ -11,11 +11,12 @@
 
 #include "common.h"
 
-#define HASH_MAX 3
+#define HASH_MAX 4
 #define HASH_RIPEMD_160 0
 #define HASH_SHA1 1
 #define HASH_SHA512 2
 #define HASH_WHIRLPOOL 3
+#define HASH_INSECURE_CRC32 4
 
 #include "rmd160.h"
 #include "sha1.h"
@@ -27,6 +28,7 @@ typedef union h_internalContextUnion {
     SHA1Context sha1;
     sha512_ctx sha512;
     NESSIEstruct whirlpool;
+    uint32_t crc32;
 } h_internalContextUnion;
 
 typedef struct hash_ctx {

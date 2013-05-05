@@ -11,6 +11,7 @@
 #include "hash.h"
 #include "rmd160.h"
 #include "sha1.h"
+#include "crc32.h"
 
 int hash_init(hash_ctx* h, uint hashtype) {
     if (hashtype > HASH_MAX)
@@ -37,6 +38,10 @@ int hash_init(hash_ctx* h, uint hashtype) {
             h->outsize = 64;
             whirlpool_init(h);
             break;
+        case HASH_INSECURE_CRC32:
+            h->blocksize = 1;
+            h->outsize = 4;
+            crc32_init(h);
         default:
             return 2;
     }
@@ -59,6 +64,10 @@ int hash_add(hash_ctx* h, uchar* msg, uint msglen) {
         case HASH_WHIRLPOOL:
             whirlpool_add(h, msg, msglen * 8);
             break;
+        case HASH_INSECURE_CRC32:
+            for (int i = 0; i < msglen; i++)
+                crc32_add(h, msg[i]);
+            break;
         default:
             return 2;
     }
@@ -80,6 +89,10 @@ int hash_final(hash_ctx* h, uchar* out) {
             break;
         case HASH_WHIRLPOOL:
             whirlpool_final(h, out);
+            break;
+        case HASH_INSECURE_CRC32:
+            crc32_final(h);
+            *((uint32_t*)out) = h->internalContext.crc32;
             break;
         default:
             return 2;

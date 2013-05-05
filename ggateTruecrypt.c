@@ -57,7 +57,7 @@
 #include "common.h"
 #include "cipher.h"
 #include "fileformat.h"
-
+#include "keyfile.h"
 
 enum { UNSET, CREATE, DESTROY, LIST, RESCUE } action = UNSET;
 
@@ -71,17 +71,16 @@ static unsigned gg_timeout = G_GATE_TIMEOUT;
 
 static cipherContext cc1, cc2, cc3;
 static qword start, len;
-static uchar pass[1024];
+static uchar password[1024];
+static uchar* pass;
 static uint plen;
 
 static void
 usage(void)
 {
 
-	fprintf(stderr, "usage: %s create [-v] [-o <ro|wo|rw>] [-q queue_size] "
+	fprintf(stderr, "usage: %s create [-v] [-k keyfile] [-o <ro|wo|rw>] [-q queue_size] "
 	    "[-s sectorsize] [-t timeout] [-u unit] <path>\n", getprogname());
-	fprintf(stderr, "       %s rescue [-v] [-o <ro|wo|rw>] <-u unit> "
-	    "<path>\n", getprogname());
 	fprintf(stderr, "       %s destroy [-f] <-u unit>\n", getprogname());
 	fprintf(stderr, "       %s list [-v] [-u unit]\n", getprogname());
 	exit(EXIT_FAILURE);
@@ -270,34 +269,16 @@ g_gatel_create(void)
 	g_gatel_serve(fd);
 }
 
-static void
-g_gatel_rescue(void)
-{
-	struct g_gate_ctl_cancel ggioc;
-	int fd;
-
-	fd = open(path, g_gate_openflags(flags));
-	if (fd == -1)
-		err(EXIT_FAILURE, "Cannot open %s", path);
-
-	ggioc.gctl_version = G_GATE_VERSION;
-	ggioc.gctl_unit = unit;
-	ggioc.gctl_seq = 0;
-	g_gate_ioctl(G_GATE_CMD_CANCEL, &ggioc);
-
-	g_gatel_serve(fd);
-}
-
 int
 main(int argc, char *argv[])
 {
+   uint8_t* pwbuf = NULL;
+   int fd;
 
 	if (argc < 2)
 		usage();
 	if (strcasecmp(argv[1], "create") == 0)
 		action = CREATE;
-	else if (strcasecmp(argv[1], "rescue") == 0)
-		action = RESCUE;
 	else if (strcasecmp(argv[1], "destroy") == 0)
 		action = DESTROY;
 	else if (strcasecmp(argv[1], "list") == 0)
@@ -309,10 +290,15 @@ main(int argc, char *argv[])
 	for (;;) {
 		int ch;
 
-		ch = getopt(argc, argv, "fo:q:s:t:u:v");
+		ch = getopt(argc, argv, "fok:q:s:t:u:v");
 		if (ch == -1)
 			break;
 		switch (ch) {
+      case 'k':
+         fd = open(optarg, O_RDONLY);
+         pwbuf = tc_addKeyfile(fd);
+         close(fd);
+         break;
 		case 'f':
 			if (action != DESTROY)
 				usage();
@@ -379,23 +365,19 @@ main(int argc, char *argv[])
 		if (argc != 1)
 			usage();
 
-      strncpy((char*)pass, getpass("Enter passphrase: "), 80);
-      plen = strlen((char*)pass);
+      strncpy((char*)password, getpass("Enter passphrase: "), 80);
+      plen = strlen((char*)password);
+      if (pwbuf) {
+        tc_addPassword((char*)password, pwbuf);
+        pass = pwbuf;
+        plen = KEYFILE_POOL_SIZE;
+      } else {
+        pass = password;
+      }
 		g_gate_load_module();
 		g_gate_open_device();
 		path = argv[0];
 		g_gatel_create();
-		break;
-	case RESCUE:
-		if (argc != 1)
-			usage();
-		if (unit == -1) {
-			fprintf(stderr, "Required unit number.\n");
-			usage();
-		}
-		g_gate_open_device();
-		path = argv[0];
-		g_gatel_rescue();
 		break;
 	case DESTROY:
 		if (unit == -1) {

@@ -107,3 +107,24 @@ unsigned long crc32(const unsigned char *s, unsigned int len)
     }
   return crc32val ^ 0xffffffff;
 }
+
+#include "hash.h"
+
+/* For compatibility with the hash interface. I could now 
+ * write a rant about CRC32 for sure not being a cryptographic
+ * hash function and that using CRC32 in a cryptographic context
+ * makes me vomit. I could however also just continue coding.
+ */
+void crc32_add(hash_ctx* h, uint8_t x) {
+    uint32_t state = h->internalContext.crc32;
+    uint32_t s = crc32_tab[(state ^ x) & 0xFF] ^ (state >> 8);
+    h->internalContext.crc32 = s;
+}
+
+void crc32_init(hash_ctx* h) {
+    h->internalContext.crc32 = 0xffffffff;
+}
+
+void crc32_final(hash_ctx* h) {
+    h->internalContext.crc32 ^= 0xffffffff;
+}
